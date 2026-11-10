@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BARE BARE POSADA SPA RESTAURANT C.A.</title>
+  <!-- Bootstrap 5 CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- React & ReactDOM CDN -->
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <!-- Babel Standalone to parse JSX -->
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Tailwind CSS CDN for styling -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background-color: #f5f5f4;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useMemo, useEffect } = React;
+
+    const INITIAL_CONFIG = {
+      posadaName: 'BARE BARE POSADA SPA RESTAURANT C.A.',
+      currencySymbol: '€',
+      singleRate: 50,
+      baseCoupleRate: 80,
+      extraGuestRate: 20,
+      rooms: [
+        { id: '101', name: 'Habitación 101 - Suite Presidencial', capacity: 4, nightlyRate: 120, type: 'Suite' },
+        { id: '102', name: 'Habitación 102 - Duplex Familiar', capacity: 8, nightlyRate: 200, type: 'Duplex' },
+        { id: '103', name: 'Habitación 103 - Vista al Jardín', capacity: 3, nightlyRate: 80, type: 'Estándar' },
+        { id: '104', name: 'Habitación 104 - Rincón Romántico', capacity: 2, nightlyRate: 80, type: 'Romántica' },
+        { id: '105', name: 'Habitación 105 - Cabaña Rústica Duplex', capacity: 6, nightlyRate: 160, type: 'Duplex' }
+      ]
+    };
+
+    const INITIAL_ROOM_BOOKINGS = [
+      {
+        id: 'res-1',
+        roomId: '101',
+        guestName: 'Carlos Mendoza',
+        companionNames: 'María Mendoza, Ana Mendoza',
+        idNumber: 'V-18.452.910',
+        paxCount: 3,
+        checkIn: new Date().toISOString().split('T')[0],
+        checkOut: new Date(Date.now() + 2 * 86400000).toISOString().split('T')[0],
+        totalAmount: 200,
+        status: 'Confirmada',
+        notes: 'Solicita cuna de bebé'
+      },
+      {
+        id: 'res-2',
+        roomId: '104',
+        guestName: 'Valeria Gómez',
+        companionNames: 'Roberto Silva',
+        idNumber: 'E-84.120.399',
+        paxCount: 2,
+        checkIn: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+        checkOut: new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
+        totalAmount: 160,
+        status: 'Confirmada',
+        notes: 'Aniversario de bodas'
+      }
+    ];
+
+    const INITIAL_EVENTS = [
+      {
+        id: 'evt-1',
+        title: 'Boda Civil Familia Pérez',
+        eventType: 'Boda',
+        date: new Date(Date.now() + 4 * 86400000).toISOString().split('T')[0],
+        paxCount: 45,
+        contactName: 'Elena Pérez',
+        contactPhone: '+58 414 1234567',
+        notes: 'Montaje de sillas en Patio Central y Brindis'
+      }
+    ];
+
+    function App() {
+      const [activeTab, setActiveTab] = useState('dashboard');
+      const [isModalOpen, setIsModalOpen] = useState(false);
+      const [modalType, setModalType] = useState('room');
+      const [editingItem, setEditingItem] = useState(null);
+      const [bookingConflict, setBookingConflict] = useState(null);
+
+      const [posadaConfig, setPosadaConfig] = useState(() => {
+        const saved = localStorage.getItem('posada_config');
+        return saved ? JSON.parse(saved) : INITIAL_CONFIG;
+      });
+
+      const [roomBookings, setRoomBookings] = useState(() => {
+        const saved = localStorage.getItem('posada_room_bookings');
+        return saved ? JSON.parse(saved) : INITIAL_ROOM_BOOKINGS;
+      });
+
+      const [eventBookings, setEventBookings] = useState(() => {
+        const saved = localStorage.getItem('posada_event_bookings');
+        return saved ? JSON.parse(saved) : INITIAL_EVENTS;
+      });
+
+      const [toastMessage, setToastMessage] = useState(null);
+      const [selectedDayDetails, setSelectedDayDetails] = useState(null);
+
+      // Sync to localStorage
+      useEffect(() => {
+        localStorage.setItem('posada_config', JSON.stringify(posadaConfig));
+      }, [posadaConfig]);
+
+      useEffect(() => {
+        localStorage.setItem('posada_room_bookings', JSON.stringify(roomBookings));
+      }, [roomBookings]);
+
+      useEffect(() => {
+        localStorage.setItem('posada_event_bookings', JSON.stringify(eventBookings));
+      }, [eventBookings]);
+
+      // Handle real-time sync across tabs
+      useEffect(() => {
+        const handleStorage = (e) => {
+          if (e.key === 'posada_room_bookings' && e.newValue) {
+            setRoomBookings(JSON.parse(e.newValue));
+            showToast('🔔 ¡Nueva reserva actualizada en tiempo real!', 'info');
+          }
+        };
+        window.addEventListener('storage', handleStorage);
+        return () => window.removeEventListener('storage', handleStorage);
+      }, []);
+
+      useEffect(() => {
+        if (window.lucide) {
+          window.lucide.createIcons();
+        }
+      });
+
+      const showToast = (msg, type = 'success') => {
+        setToastMessage({ msg, type });
+        setTimeout(() => setToastMessage(null), 3500);
+      };
+
+      const [rangeStartDate, setRangeStartDate] = useState(() => new Date().toISOString().split('T')[0]);
+      const [rangeEndDate, setRangeEndDate] = useState(() => {
+        const d = new Date();
+        d.setDate(d.getDate() + 7);
+        return d.toISOString().split('T')[0];
+      });
+      const [monthlyYearMonth, setMonthlyYearMonth] = useState(() => new Date().toISOString().slice(0, 7));
+
+      const [newRoomForm, setNewRoomForm] = useState({ name: '', capacity: 2, nightlyRate: 80, type: 'Estándar' });
+
+      const [roomForm, setRoomForm] = useState({
+        roomId: posadaConfig.rooms[0]?.id || '101',
+        guestName: '',
+        companionNames: '',
+        idNumber: '',
+        paxCount: 2,
+        checkIn: new Date().toISOString().split('T')[0],
+        checkOut: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+        notes: ''
+      });
+
+      const [eventForm, setEventForm] = useState({
+        eventType: 'Boda',
+        date: new Date().toISOString().split('T')[0],
+        contactName: '',
+        contactPhone: '',
+        paxCount: 30
+      });
+
+      const roomCalculations = useMemo(() => {
+        if (!roomForm.checkIn || !roomForm.checkOut) return { nights: 0, nightlyRate: 0, totalAmount: 0 };
+        const start = new Date(roomForm.checkIn);
+        const end = new Date(roomForm.checkOut);
+        const nights = Math.max(0, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+        const pax = Number(roomForm.paxCount) || 1;
+        const selectedRoom = posadaConfig.rooms.find(r => r.id === roomForm.roomId);
+        
+        let nightlyRate = selectedRoom?.nightlyRate || (pax === 1 ? 50 : 80);
+        if (pax > 2 && !selectedRoom?.nightlyRate) {
+          nightlyRate += (pax - 2) * 20;
+        }
+        return { nights, nightlyRate, totalAmount: nights * nightlyRate };
+      }, [roomForm.checkIn, roomForm.checkOut, roomForm.paxCount, roomForm.roomId, posadaConfig]);
+
+      const checkRoomAvailability = (roomId, checkIn, checkOut, excludeBookingId = null) => {
+        const conflicting = roomBookings.filter(b => {
+          if (b.id === excludeBookingId) return false;
+          if (b.roomId !== roomId) return false;
+          return (checkIn < b.checkOut && checkOut > b.checkIn);
+        });
+
+        if (conflicting.length === 0) return { available: true };
+
+        const alternativeRooms = posadaConfig.rooms.filter(r => {
+          if (r.id === roomId) return false;
+          return !roomBookings.some(b => b.id !== excludeBookingId && b.roomId === r.id && (checkIn < b.checkOut && checkOut > b.checkIn));
+        });
+
+        const latestConflictingCheckOut = conflicting.reduce((max, b) => b.checkOut > max ? b.checkOut : max, checkIn);
+        const durationDays = Math.max(1, Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24)));
+        const suggestedCheckIn = latestConflictingCheckOut;
+        const suggestedCheckOutDate = new Date(suggestedCheckIn);
+        suggestedCheckOutDate.setDate(suggestedCheckOutDate.getDate() + durationDays);
+
+        return {
+          available: false,
+          conflicting,
+          alternativeRooms,
+          suggestedNextDates: { checkIn: suggestedCheckIn, checkOut: suggestedCheckOutDate.toISOString().split('T')[0] }
+        };
+      };
+
+      const handleOpenCreateModal = (type) => {
+        setEditingItem(null);
+        setBookingConflict(null);
+        setModalType(type);
+        if (type === 'room') {
+          setRoomForm({
+            roomId: posadaConfig.rooms[0]?.id || '101',
+            guestName: '',
+            companionNames: '',
+            idNumber: '',
+            paxCount: 2,
+            checkIn: new Date().toISOString().split('T')[0],
+            checkOut: new Date(Date.now() + 86400000).toISOString().split('T')[0],
+            notes: ''
+          });
+        } else {
+          setEventForm({ eventType: 'Boda', date: new Date().toISOString().split('T')[0], contactName: '', contactPhone: '', paxCount: 30 });
+        }
+        setIsModalOpen(true);
+      };
+
+      const handleEditRoomBooking = (booking) => {
+        setEditingItem(booking);
+        setBookingConflict(null);
+        setModalType('room');
+        setRoomForm({ ...booking });
+        setIsModalOpen(true);
+      };
+
+      const handleSaveRoomBooking = (e) => {
+        e.preventDefault();
+        if (!roomForm.guestName || !roomForm.idNumber) return showToast('Ingrese nombre y cédula.', 'error');
+        if (roomForm.checkIn >= roomForm.checkOut) return showToast('La fecha de salida debe ser posterior.', 'error');
+
+        const availability = checkRoomAvailability(roomForm.roomId, roomForm.checkIn, roomForm.checkOut, editingItem?.id);
+        if (!availability.available) {
+          setBookingConflict(availability);
+          return showToast('Habitación ocupada para las fechas.', 'error');
+        }
+
+        if (editingItem) {
+          setRoomBookings(prev => prev.map(b => b.id === editingItem.id ? { ...b, ...roomForm, totalAmount: roomCalculations.totalAmount } : b));
+          showToast('Reserva actualizada.');
+        } else {
+          const newBooking = { id: `res-${Date.now()}`, ...roomForm, totalAmount: roomCalculations.totalAmount, status: 'Confirmada' };
+          setRoomBookings(prev => [newBooking, ...prev]);
+          showToast('Reserva guardada.');
+        }
+        setIsModalOpen(false);
+      };
+
+      const handleDeleteBooking = (id) => {
+        setRoomBookings(prev => prev.filter(b => b.id !== id));
+        showToast('Reserva eliminada.');
+      };
+
+      const customRangeDays = useMemo(() => {
+        if (!rangeStartDate || !rangeEndDate) return [];
+        const days = [];
+        let start = new Date(rangeStartDate + 'T00:00:00');
+        const end = new Date(rangeEndDate + 'T00:00:00');
+        while (start <= end) {
+          const dateStr = start.toISOString().split('T')[0];
+          const dayLabel = start.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'numeric' });
+          days.push({ dateStr, label: dayLabel });
+          start.setDate(start.getDate() + 1);
+        }
+        return days;
+      }, [rangeStartDate, rangeEndDate]);
+
+      return (
+        <div className="min-h-screen bg-stone-100 text-stone-900 pb-5">
+          {toastMessage && (
+            <div className={`position-fixed top-0 end-0 m-3 p-3 rounded shadow text-white z-50 ${toastMessage.type === 'error' ? 'bg-danger' : 'bg-success'}`}>
+              {toastMessage.msg}
+            </div>
+          )}
+
+          <header className="bg-stone-900 text-white p-3 shadow-sm border-b border-stone-800 sticky-top">
+            <div className="container-fluid d-flex justify-content-between align-items-center">
+              <div className="d-flex align-items-center gap-2">
+                <div className="bg-warning text-dark font-bold px-3 py-1 rounded-3 fs-5">B</div>
+                <div>
+                  <h1 className="h6 m-0 font-serif font-bold">{posadaConfig.posadaName}</h1>
+                  <span className="badge bg-success">EN VIVO</span>
+                </div>
+              </div>
+              <button onClick={() => handleOpenCreateModal('room')} className="btn btn-warning btn-sm font-bold">
+                + Nueva Reserva
+              </button>
+            </div>
+          </header>
+
+          <nav className="bg-white border-bottom shadow-sm mb-4 sticky-top top-14">
+            <div className="container-fluid d-flex overflow-auto py-2 gap-2">
+              {[
+                { id: 'dashboard', label: 'Panel Principal' },
+                { id: 'weekly', label: 'Ocupación por Rango' },
+                { id: 'monthly', label: 'Calendario Mensual' },
+                { id: 'events', label: 'Eventos & Bodas' },
+                { id: 'admin', label: 'Gestión Habitaciones' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`btn btn-sm text-nowrap ${activeTab === tab.id ? 'btn-warning text-dark font-bold' : 'btn-light'}`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </nav>
+
+          <main className="container-fluid">
+            {activeTab === 'dashboard' && (
+              <div className="row g-3">
+                <div className="col-6 col-md-3">
+                  <div className="card p-3 shadow-sm border-0">
+                    <span className="text-muted small">Habitaciones</span>
+                    <h3 className="m-0 font-bold">{posadaConfig.rooms.length}</h3>
+                  </div>
+                </div>
+                <div className="col-6 col-md-3">
+                  <div className="card p-3 shadow-sm border-0">
+                    <span className="text-muted small">Reservas Activas</span>
+                    <h3 className="m-0 font-bold text-success">{roomBookings.length}</h3>
+                  </div>
+                </div>
+                <div className="col-6 col-md-3">
+                  <div className="card p-3 shadow-sm border-0">
+                    <span className="text-muted small">Eventos</span>
+                    <h3 className="m-0 font-bold text-primary">{eventBookings.length}</h3>
+                  </div>
+                </div>
+                <div className="col-6 col-md-3">
+                  <div className="card p-3 shadow-sm border-0">
+                    <span className="text-muted small">Tarifas</span>
+                    <p className="m-0 small font-bold">1p: €50 | 2p: €80 | Extra: €20</p>
+                  </div>
+                </div>
+
+                <div className="col-12 mt-4">
+                  <div className="card p-3 shadow-sm border-0">
+                    <h5 className="font-bold mb-3">Reservas Recientes</h5>
+                    <div className="table-responsive">
+                      <table className="table table-hover align-middle small">
+                        <thead className="table-light">
+                          <tr>
+                            <th>Huésped</th>
+                            <th>Cédula</th>
+                            <th>Habitación</th>
+                            <th>Fechas</th>
+                            <th>Pax</th>
+                            <th>Total</th>
+                            <th>Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {roomBookings.map(b => (
+                            <tr key={b.id}>
+                              <td className="font-bold">{b.guestName}</td>
+                              <td>{b.idNumber}</td>
+                              <td>{posadaConfig.rooms.find(r => r.id === b.roomId)?.name}</td>
+                              <td>{b.checkIn} ➔ {b.checkOut}</td>
+                              <td>{b.paxCount}</td>
+                              <td className="text-success font-bold">€{b.totalAmount}</td>
+                              <td>
+                                <button onClick={() => handleEditRoomBooking(b)} className="btn btn-sm btn-outline-warning me-1">✏️</button>
+                                <button onClick={() => handleDeleteBooking(b.id)} className="btn btn-sm btn-outline-danger">🗑️</button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'weekly' && (
+              <div className="card p-3 shadow-sm border-0">
+                <h5 className="font-bold mb-3">Consulta de Ocupación por Rango</h5>
+                <div className="d-flex gap-3 mb-3">
+                  <input type="date" value={rangeStartDate} onChange={e => setRangeStartDate(e.target.value)} className="form-control form-control-sm" />
+                  <input type="date" value={rangeEndDate} onChange={e => setRangeEndDate(e.target.value)} className="form-control form-control-sm" />
+                </div>
+                <div className="table-responsive">
+                  <table className="table table-bordered align-middle small">
+                    <thead className="table-dark">
+                      <tr>
+                        <th>Habitación</th>
+                        {customRangeDays.map(d => <th key={d.dateStr} className="text-center">{d.label}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {posadaConfig.rooms.map(room => (
+                        <tr key={room.id}>
+                          <td className="font-bold">{room.name}</td>
+                          {customRangeDays.map(day => {
+                            const booking = roomBookings.find(b => b.roomId === room.id && b.checkIn <= day.dateStr && b.checkOut > day.dateStr);
+                            return (
+                              <td key={day.dateStr} className="text-center">
+                                {booking ? (
+                                  <div className="bg-warning-subtle text-dark p-1 rounded font-bold">
+                                    👤 {booking.guestName}
+                                  </div>
+                                ) : (
+                                  <span className="badge bg-success-subtle text-success">Libre</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </main>
+
+          {isModalOpen && (
+            <div className="modal d-block bg-dark bg-opacity-50" tabIndex="-1">
+              <div className="modal-dialog modal-dialog-centered">
+                <div className="modal-content">
+                  <div className="modal-header">
+                    <h5 className="modal-title font-bold">{editingItem ? 'Modificar Reserva' : 'Nueva Reserva'}</h5>
+                    <button type="button" className="btn-close" onClick={() => setIsModalOpen(false)}></button>
+                  </div>
+                  <form onSubmit={handleSaveRoomBooking}>
+                    <div className="modal-body space-y-3">
+                      {bookingConflict && (
+                        <div className="alert alert-danger small">
+                          <strong>¡Habitación Ocupada!</strong>
+                          <p className="m-0">Próxima fecha libre: {bookingConflict.suggestedNextDates.checkIn} ➔ {bookingConflict.suggestedNextDates.checkOut}</p>
+                        </div>
+                      )}
+                      <div>
+                        <label className="form-label small font-bold">Habitación</label>
+                        <select value={roomForm.roomId} onChange={e => setRoomForm({...roomForm, roomId: e.target.value})} className="form-select form-select-sm">
+                          {posadaConfig.rooms.map(r => (
+                            <option key={r.id} value={r.id}>{r.name} (Cap: {r.capacity} pax)</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="row g-2">
+                        <div className="col-6">
+                          <label className="form-label small font-bold">Huésped</label>
+                          <input type="text" required value={roomForm.guestName} onChange={e => setRoomForm({...roomForm, guestName: e.target.value})} className="form-control form-control-sm" />
+                        </div>
+                        <div className="col-6">
+                          <label className="form-label small font-bold">Cédula</label>
+                          <input type="text" required value={roomForm.idNumber} onChange={e => setRoomForm({...roomForm, idNumber: e.target.value})} className="form-control form-control-sm" />
+                        </div>
+                      </div>
+                      <div className="row g-2">
+                        <div className="col-6">
+                          <label className="form-label small font-bold">Check-In</label>
+                          <input type="date" required value={roomForm.checkIn} onChange={e => setRoomForm({...roomForm, checkIn: e.target.value})} className="form-control form-control-sm" />
+                        </div>
+                        <div className="col-6">
+                          <label className="form-label small font-bold">Check-Out</label>
+                          <input type="date" required value={roomForm.checkOut} onChange={e => setRoomForm({...roomForm, checkOut: e.target.value})} className="form-control form-control-sm" />
+                        </div>
+                      </div>
+                      <div className="p-2 bg-light rounded text-end font-bold text-success">
+                        Total Estimado: €{roomCalculations.totalAmount}
+                      </div>
+                    </div>
+                    <div className="modal-footer">
+                      <button type="submit" className="btn btn-warning w-100 font-bold">Guardar Reserva</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>
