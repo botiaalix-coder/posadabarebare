@@ -1098,8 +1098,25 @@ React.useEffect(() => {
                     onClick={() => setViewMode('guest')}
                     className="w-full py-3 bg-stone-100 text-stone-800 font-bold rounded-xl text-xs"
                   >
-                    Hacer Otra Reserva
-                  </button>
+                 <button 
+  onClick={() => {
+    setFormData({
+      guestName: '',
+      idNumber: '',
+      phone: '',
+      roomId: '',
+      paxCount: 1,
+      checkIn: '',
+      checkOut: '',
+      totalAmount: '',
+      notes: ''
+    });
+    setReservaExitosa(false);
+  }}
+  className="w-full py-3 bg-stone-100 text-stone-800 font-bold rounded-xl text-xs hover:bg-stone-200 transition"
+>
+  Hacer Otra Reserva
+</button>
                 </div>
               </div>
             </main>
@@ -1164,9 +1181,30 @@ React.useEffect(() => {
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block font-semibold mb-1">Teléfono WhatsApp</label>
-                        <input type="text" value={roomForm.phone} onChange={e => setRoomForm({...roomForm, phone: e.target.value})} className="w-full p-2.5 border rounded-xl" />
-                      </div>
+                        <label className="block font-semibold mb-1">Teléfono WhatsApp *</label>
+<div className="flex gap-2">
+  <select
+    value={eventForm.countryCode || '+58'}
+    onChange={e => setEventForm({...eventForm, countryCode: e.target.value})}
+    className="p-2.5 border rounded-xl bg-white text-sm font-medium"
+  >
+    <option value="+58">🇻🇪 (+58)</option>
+    <option value="+57">🇨🇴 (+57)</option>
+    <option value="+1">🇺🇸 (+1)</option>
+    <option value="+34">🇪🇸 (+34)</option>
+    <option value="+54">🇦🇷 (+54)</option>
+    <option value="+56">🇨🇱 (+56)</option>
+    <option value="+52">🇲🇽 (+52)</option>
+  </select>
+  <input 
+    type="tel" 
+    required 
+    placeholder="4121234567"
+    value={eventForm.contactPhone || ''} 
+    onChange={e => setEventForm({...eventForm, contactPhone: e.target.value})} 
+    className="flex-1 p-2.5 border rounded-xl text-sm" 
+  />
+</div>
                       <div>
                         <label className="block font-semibold mb-1">Huéspedes (Pax)</label>
                         <input type="number" min="1" value={roomForm.paxCount} onChange={e => setRoomForm({...roomForm, paxCount: Number(e.target.value)})} className="w-full p-2.5 border rounded-xl" />
